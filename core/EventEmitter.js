@@ -12,6 +12,12 @@ class EventEmitter {
      * }
      */
     this.events = {};
+
+    /**
+     * Stores global middleware functions applied to every event
+     * [fn1, fn2, ...]
+     */
+    this.middlewares = [];
   }
 
   /**
@@ -45,15 +51,28 @@ class EventEmitter {
   }
 
   /**
-   * Emit an event with arguments
+   * Emit an event with arguments.
+   * Runs any registered middleware chain first, then dispatches to listeners.
    */
   emit(event, ...args) {
-    if (!this.events[event]) return;
+    const listeners = this.events[event];
 
-    // preserve execution order
-    this.events[event].forEach((listener) => {
-      listener(...args);
-    });
+    if (!this.middlewares.length && !listeners) return;
+
+    let currentArgs = args;
+
+    for (const middleware of this.middlewares) {
+      let called = false;
+      middleware(event, currentArgs, (newArgs) => {
+        called = true;
+        currentArgs = newArgs ?? currentArgs;
+      });
+      if (!called) return;
+    }
+
+    if (listeners) {
+      listeners.forEach((listener) => listener(...currentArgs));
+    }
   }
 
   /**
@@ -66,6 +85,23 @@ class EventEmitter {
     };
 
     this.on(event, wrapper);
+  }
+
+  /**
+   * Register a global middleware function applied to every emitted event.
+   * Middleware runs before listeners when the event is emitted.
+   *
+   * @param {Function} fn - Called as fn(eventName, args, next)
+   *   - eventName {string}   the name of the emitted event
+   *   - args      {Array}    current argument list
+   *   - next      {Function} call next(newArgs?) to continue; omit to stop propagation
+   * @returns {Function} unsubscribe — call it to remove this middleware and avoid memory leaks
+   */
+  use(fn) {
+    this.middlewares.push(fn);
+    return () => {
+      this.middlewares = this.middlewares.filter((m) => m !== fn);
+    };
   }
 }
 
