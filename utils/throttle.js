@@ -32,6 +32,13 @@
  * ```
  */
 function throttle(fn, delay, options = {}) {
+  if (typeof fn !== 'function') {
+    throw new TypeError('throttle: first argument must be a function');
+  }
+  if (typeof delay !== 'number' || isNaN(delay)) {
+    throw new TypeError('throttle: delay must be a valid number');
+  }
+
   const { leading = true, trailing = true } = options;
   let timeoutId = null;
   let lastCallTime = 0;
@@ -79,8 +86,8 @@ function throttle(fn, delay, options = {}) {
       return execute(this, args);
     }
 
-    // If not currently throttling
-    if (timeSinceLastCall >= delay && timeoutId === null) {
+    // If not currently throttling (lastCallTime !== 0 prevents leading: false from firing on first call)
+    if (timeSinceLastCall >= delay && timeoutId === null && lastCallTime !== 0) {
       return execute(this, args);
     }
 
@@ -93,14 +100,6 @@ function throttle(fn, delay, options = {}) {
     return lastResult;
   };
 }
-
-// Optional: Add cancel method for advanced usage
-throttle.cancel = function(throttledFn) {
-  if (throttledFn && throttledFn.__timeoutId) {
-    clearTimeout(throttledFn.__timeoutId);
-    throttledFn.__timeoutId = null;
-  }
-};
 
 // Export the function
 export default throttle;
